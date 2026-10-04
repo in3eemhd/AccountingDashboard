@@ -1,0 +1,739 @@
+<title>Executive Financial Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: SharePoint page shell → one full-width dashboard web part. Summary (KPIs, risk) first,
+   then three chart rows, then detail tables, then the data-source panel that feeds everything. */
+:root{
+  --bg:#f1f2f4;            /* page plane, cool neutral biased toward the navy */
+  --surface:#fbfaf6;       /* card / chart surface (validated) */
+  --surface-2:#f3f2ed;     /* table header, inset */
+  --ink:#141d33;           /* primary text */
+  --ink-2:#4b5366;         /* secondary text */
+  --muted:#8a8f9c;         /* axis, captions */
+  --line:#e2e1da;          /* hairline grid */
+  --rule:#c9cbd2;          /* borders */
+  --navy:#1f3864;          /* brand chrome (from the workbook) */
+  --navy-2:#2f5597;        /* accent: links, active nav, focus */
+  --navy-ink:#ffffff;
+  --ar:#15855f;            /* series: receivables */
+  --ap:#bf8226;            /* series: payables */
+  --sal:#3f66b8;           /* series: salaries facility */
+  --sup:#bf8226;           /* series: supplier loans (shares AP hue: both are outflows) */
+  --good:#0f6b3a; --good-bg:#e1f3e8; --good-ink:#ffffff;
+  --warn:#bf9000; --warn-bg:#fdf0d5; --warn-ink:#1a1400;
+  --crit:#c00000; --crit-bg:#fbe3e3; --crit-ink:#ffffff;
+  --crit-text:#a1191a; --warn-text:#8a5300;
+  --shadow:0 1px 2px rgba(20,29,51,.06), 0 4px 14px rgba(20,29,51,.05);
+  --f-ui:"IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-display:"IBM Plex Serif", Georgia, "Times New Roman", serif;
+  --f-mono:"IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0f1316; --surface:#15191a; --surface-2:#1d2224; --ink:#eef0f3; --ink-2:#b8bec9; --muted:#8a8f9c;
+  --line:#2a2f33; --rule:#3a4047; --navy:#17294a; --navy-2:#8fb0e8; --navy-ink:#ffffff;
+  --ar:#2fa37a; --ap:#b07a22; --sal:#6a8de0; --sup:#b07a22;
+  --good:#1f8a4c; --good-bg:#15311f; --good-ink:#ffffff; --warn:#d1a63a; --warn-bg:#3a2e0d; --warn-ink:#120e00;
+  --crit:#d64545; --crit-bg:#3a1515; --crit-ink:#ffffff; --crit-text:#f08a8a; --warn-text:#e3b95a;
+  --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark; } }
+:root[data-theme="dark"]{
+  --bg:#0f1316; --surface:#15191a; --surface-2:#1d2224; --ink:#eef0f3; --ink-2:#b8bec9; --muted:#8a8f9c;
+  --line:#2a2f33; --rule:#3a4047; --navy:#17294a; --navy-2:#8fb0e8; --navy-ink:#ffffff;
+  --ar:#2fa37a; --ap:#b07a22; --sal:#6a8de0; --sup:#b07a22;
+  --good:#1f8a4c; --good-bg:#15311f; --good-ink:#ffffff; --warn:#d1a63a; --warn-bg:#3a2e0d; --warn-ink:#120e00;
+  --crit:#d64545; --crit-bg:#3a1515; --crit-ink:#ffffff; --crit-text:#f08a8a; --warn-text:#e3b95a;
+  --shadow:0 1px 2px rgba(0,0,0,.4); color-scheme:dark; }
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--f-ui);-webkit-font-smoothing:antialiased}
+a{color:var(--navy-2)}
+button{font:inherit}
+:focus-visible{outline:2px solid var(--navy-2);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+/* ---------- SharePoint shell (context only) ---------- */
+.suite{background:var(--navy);color:var(--navy-ink);height:48px;display:flex;align-items:center;gap:16px;padding-inline:16px;font-size:13px}
+.suite .waffle{display:grid;grid-template-columns:repeat(3,4px);gap:3px}
+.suite .waffle i{width:4px;height:4px;background:#fff;display:block;border-radius:1px}
+.suite .brand{font-weight:600;letter-spacing:.01em}
+.suite .sp{opacity:.8}
+.suite .search{margin-left:auto;background:rgba(255,255,255,.14);border-radius:4px;height:30px;width:min(360px,40vw);display:flex;align-items:center;padding-inline:10px;color:rgba(255,255,255,.75)}
+.suite .avatar{width:28px;height:28px;border-radius:50%;background:#bf8226;color:#fff;display:grid;place-items:center;font-size:12px;font-weight:600}
+.sitebar{background:var(--surface);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sitebar .logo{width:40px;height:40px;border-radius:6px;background:var(--navy);color:#fff;display:grid;place-items:center;font-family:var(--f-display);font-weight:600}
+.sitebar h1{font:600 18px/1.2 var(--f-ui);margin:0}
+.sitebar .sub{color:var(--ink-2);font-size:12px}
+.sitebar nav{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap}
+.sitebar nav a{text-decoration:none;color:var(--ink-2);padding:6px 10px;border-radius:4px;font-size:13px}
+.sitebar nav a[aria-current]{color:var(--ink);box-shadow:inset 0 -2px 0 var(--navy-2)}
+
+/* ---------- Web part ---------- */
+.wrap{max-width:1440px;margin:0 auto;padding-inline:16px;padding-block:20px 48px}
+.masthead{display:grid;grid-template-columns:1fr auto;gap:16px 24px;align-items:end;padding-block:10px 18px}
+.masthead .eyebrow{font:500 11px/1 var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-2)}
+.masthead h2{font:600 clamp(24px,3vw,34px)/1.1 var(--f-display);margin:8px 0 6px;text-wrap:balance}
+.masthead .asof{color:var(--ink-2);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.masthead .asof b{color:var(--ink);font-weight:600}
+.masthead .asof .dot{width:4px;height:4px;border-radius:50%;background:var(--rule)}
+.fresh{justify-self:end;display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:0;max-width:100%}
+@media (max-width:900px){.masthead{grid-template-columns:1fr}.fresh{justify-self:start;align-items:flex-start}}
+.fresh .stamp{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:12.5px;color:var(--ink-2)}
+.fresh .stamp .live{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px var(--good-bg)}
+.fresh .stamp b{color:var(--ink);font-weight:600}
+.fresh .stamp code{font:12px var(--f-mono);color:var(--ink);word-break:break-all}
+.fresh .stamp span{min-width:0}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:6px;padding:7px 12px;cursor:pointer;text-decoration:none;font-weight:500}
+.btn.primary{background:var(--navy-2);border-color:var(--navy-2);color:#fff}
+.btn svg{width:16px;height:16px}
+
+/* sticky section nav */
+.secnav{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:8px;margin-bottom:12px;border-bottom:1px solid var(--line);display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.secnav::-webkit-scrollbar{display:none}
+.secnav a{white-space:nowrap;text-decoration:none;color:var(--ink-2);font-size:13px;padding:6px 10px;border-radius:999px;border:1px solid transparent}
+.secnav a:hover{border-color:var(--rule)}
+.secnav a.on{color:var(--ink);background:var(--surface);border-color:var(--rule)}
+
+section.block{margin-block:18px 26px}
+.bhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.bhead h3{font:600 17px/1.2 var(--f-display);margin:0}
+.bhead .meta{color:var(--muted);font-size:12.5px}
+.bhead .right{margin-left:auto;display:flex;gap:6px;align-items:center}
+
+/* ---------- KPI tiles ---------- */
+.kpis{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px 12px;box-shadow:var(--shadow);min-width:0;display:flex;flex-direction:column;gap:6px;position:relative}
+.kpi .lbl{font:500 11px/1.2 var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2)}
+.kpi .val{font:600 clamp(22px,2vw,28px)/1.05 var(--f-ui);letter-spacing:-.01em;margin-top:4px}
+.kpi .val small{font-size:.55em;font-weight:500;color:var(--ink-2);margin-right:4px;letter-spacing:0}
+.kpi .val.neg{color:var(--crit-text)}
+.kpi .cap{color:var(--ink-2);font-size:12.5px;line-height:1.35}
+.kpi .cap b{color:var(--ink);font-weight:600}
+.kpi .delta{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--good);font-weight:600}
+.kpi .delta.down{color:var(--crit-text)}
+.kpi .stripe{position:absolute;left:0;top:12px;bottom:12px;width:3px;border-radius:0 2px 2px 0}
+.meter{height:6px;border-radius:3px;background:var(--surface-2);overflow:hidden;margin-top:6px;border:1px solid var(--line)}
+.meter i{display:block;height:100%;border-radius:3px}
+@media (max-width:1180px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi .val{font-size:22px}}
+@media (max-width:420px){.kpis{grid-template-columns:1fr}}
+
+/* ---------- Risk + attention ---------- */
+.grid2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:12px}
+@media (max-width:980px){.grid2{grid-template-columns:1fr}}
+.grid2.even{grid-template-columns:1fr 1fr}
+@media (max-width:980px){.grid2.even{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);min-width:0}
+.card .chead{display:flex;align-items:baseline;gap:10px;padding:12px 16px 0}
+.card .chead h4{margin:0;font:600 14px/1.3 var(--f-ui)}
+.card .chead .meta{color:var(--muted);font-size:12px;margin-left:auto}
+.card .cbody{padding:12px 16px 14px}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font:500 11px/1.2 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);text-align:left;padding:8px 10px;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.r,.tbl th.r{text-align:right}
+.tbl td.mono{font:12.5px var(--f-mono)}
+.tbl th{white-space:nowrap}
+.tbl td.nw{white-space:nowrap}
+.tbl tfoot td{font-weight:600;background:var(--surface-2);border-top:1px solid var(--rule)}
+.tbl .hot{color:var(--crit-text);font-weight:600}
+.tbl .idx{color:var(--muted);width:2ch}
+.tscroll{overflow-x:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 9px 3px 7px;font-size:11.5px;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.chip svg{width:12px;height:12px}
+.chip.good{background:var(--good);color:var(--good-ink)}
+.chip.warn{background:var(--warn);color:var(--warn-ink)}
+.chip.crit{background:var(--crit);color:var(--crit-ink)}
+.chip.pass{background:var(--good-bg);color:var(--good)}
+.chip.review{background:var(--crit-bg);color:var(--crit-text)}
+.limit{color:var(--muted);font-size:12px}
+.attn{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.attn li{display:grid;grid-template-columns:4px 1fr;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.attn li:last-child{border-bottom:0}
+.attn li i{border-radius:2px;background:var(--crit)}
+.attn li.w i{background:var(--warn)}
+.attn b{display:block;font-weight:600}
+.attn span{color:var(--ink-2);font-size:12.5px}
+.attn .num{color:var(--ink)}
+
+/* ---------- Charts ---------- */
+.charts3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:1100px){.charts3{grid-template-columns:1fr}}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--ink-2);padding:0 16px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.legend i.line{height:2px;width:14px;border-radius:1px}
+.chart{display:block;width:100%;height:auto;overflow:visible}
+.chart text{font-family:var(--f-ui);fill:var(--muted);font-size:11px}
+.chart text.val{fill:var(--ink);font-weight:600;font-size:11px}
+.chart text.cat{fill:var(--ink-2);font-size:12px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .base{stroke:var(--rule);stroke-width:1}
+.chart .hit{fill:transparent}
+.chart .hit:hover{fill:var(--ink);fill-opacity:.04}
+.tip{position:fixed;z-index:50;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:8px 10px;border-radius:6px;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:260px;opacity:0;transition:opacity .08s}
+.tip b{display:block;margin-bottom:3px;font-weight:600}
+.tip .row{display:flex;justify-content:space-between;gap:14px}
+.tip .row i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle}
+.hbar-row{display:grid;grid-template-columns:minmax(120px,36%) 1fr auto;gap:10px;align-items:center;padding-block:6px;font-size:13px}
+.hbar-row .name{color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hbar-row .track{height:18px;position:relative;display:flex;gap:2px}
+.hbar-row .track i{display:block;height:100%;border-radius:0 4px 4px 0;min-width:2px}
+.hbar-row .track i.over{border-radius:0 4px 4px 0;background:var(--crit)}
+.hbar-row .track i.main{border-radius:0 4px 4px 0}
+.hbar-row .track i.main.has{border-radius:0}
+.hbar-row .v{text-align:right;color:var(--ink);font-weight:600;white-space:nowrap}
+.hbar-row .v small{color:var(--muted);font-weight:400;margin-left:6px}
+.fac{display:flex;flex-direction:column;gap:14px}
+.fac .row{display:grid;grid-template-columns:1fr auto;gap:4px 12px}
+.fac .row .n{font-weight:600}
+.fac .row .l{color:var(--ink-2);font-size:12.5px;grid-column:1/-1}
+.fac .pct{font-weight:600}
+.fac .meter{grid-column:1/-1;height:10px;margin:0}
+.cashlist{display:flex;flex-direction:column}
+.cashlist .row{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:7px 0;border-bottom:1px solid var(--line)}
+.cashlist .row:last-child{border-bottom:0}
+.cashlist .b{font-weight:500}
+.cashlist .c{color:var(--muted);font:12px var(--f-mono)}
+.cashlist .a{text-align:right;font-weight:600}
+.cashlist .p{text-align:right;color:var(--muted);font-size:12px}
+.cashbar{display:flex;height:8px;border-radius:4px;overflow:hidden;gap:2px;margin:8px 0 2px}
+.cashbar i{display:block;background:var(--ar)}
+.cashbar i:nth-child(2){opacity:.7}.cashbar i:nth-child(3){opacity:.5}.cashbar i:nth-child(n+4){opacity:.3}
+
+/* ---------- Liquidity + integrity ---------- */
+.liq td.gap{color:var(--good);font-weight:600}
+.checks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:0 24px}
+@media (max-width:700px){.checks{grid-template-columns:1fr}}
+.checks li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.checks li span:first-child{color:var(--ink-2);flex:1}
+.checks li .chip{flex:none}
+
+/* ---------- Data source panel ---------- */
+.ds{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+@media (max-width:980px){.ds{grid-template-columns:1fr}}
+.drop{border:1.5px dashed var(--rule);border-radius:8px;padding:22px 16px;text-align:center;color:var(--ink-2);background:var(--surface-2);display:flex;flex-direction:column;align-items:center;gap:8px}
+.drop.on{border-color:var(--navy-2);background:var(--surface)}
+.drop svg{width:28px;height:28px;color:var(--navy-2)}
+.drop b{color:var(--ink)}
+.drop small{font-size:12px;color:var(--muted)}
+.filecard{display:grid;grid-template-columns:40px 1fr auto;gap:12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.filecard .xl{width:40px;height:40px;border-radius:6px;background:#1d6f42;color:#fff;display:grid;place-items:center;font:600 12px var(--f-mono)}
+.filecard .fn{font-weight:600;word-break:break-word}
+.filecard .fm{color:var(--ink-2);font-size:12.5px}
+.filecard .ver{font:12px var(--f-mono);color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:3px 8px;white-space:nowrap}
+.sheets{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-top:4px}
+.sheets div{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-size:12.5px;background:var(--surface)}
+.sheets div .ok{width:16px;height:16px;border-radius:50%;background:var(--good-bg);color:var(--good);display:grid;place-items:center;flex:none}
+.sheets div .ok svg{width:10px;height:10px}
+.sheets small{color:var(--muted);display:block;font-size:11px}
+.perm{display:flex;flex-direction:column;gap:10px}
+.perm .who{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.perm .who:last-child{border-bottom:0}
+.perm .av{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:600;color:#fff;background:var(--navy-2);flex:none}
+.perm .who b{display:block;font-weight:600;font-size:13px}
+.perm .who span{color:var(--ink-2);font-size:12px}
+.perm .role{margin-left:auto;font:12px var(--f-mono);color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:2px 8px;white-space:nowrap}
+.hist{list-style:none;margin:0;padding:0}
+.hist li{display:grid;grid-template-columns:auto 1fr auto;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px;align-items:center}
+.hist li:last-child{border-bottom:0}
+.hist code{font:12px var(--f-mono);color:var(--ink)}
+.hist .when{color:var(--muted);white-space:nowrap}
+.steps{counter-reset:s;list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.steps li{display:grid;grid-template-columns:24px 1fr;gap:10px;font-size:13px;color:var(--ink-2)}
+.steps li::before{counter-increment:s;content:counter(s);width:24px;height:24px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font:600 12px var(--f-mono)}
+.steps b{color:var(--ink);font-weight:600}
+.note{font-size:12.5px;color:var(--ink-2);border-left:3px solid var(--navy-2);padding:6px 12px;background:var(--surface-2);border-radius:0 6px 6px 0}
+footer.foot{color:var(--muted);font-size:12px;padding-top:12px;border-top:1px solid var(--line);display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<!-- ======= SharePoint shell (for context; not part of the web part) ======= -->
+<div class="suite" aria-label="Microsoft 365 suite bar (context)">
+  <span class="waffle" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+  <span class="brand">SharePoint</span>
+  <span class="sp">Finance</span>
+  <div class="search">Search this site</div>
+  <span class="avatar">AA</span>
+</div>
+<div class="sitebar">
+  <div class="logo">F</div>
+  <div><h1>Finance</h1><div class="sub">Engineering Consulting Co. · Hub site</div></div>
+  <nav aria-label="Site navigation">
+    <a href="#top" aria-current="page">Executive Dashboard</a><a href="#top">Reports</a><a href="#top">Policies</a><a href="#top">Dashboard Data</a>
+  </nav>
+</div>
+
+<main class="wrap" id="top">
+  <!-- ======= Masthead ======= -->
+  <div class="masthead">
+    <div>
+      <div class="eyebrow">Receivables · Payables · Bank loans · Cash</div>
+      <h2>Executive Financial Dashboard</h2>
+      <div class="asof">
+        <span>Position as at <b>03 October 2026</b></span><span class="dot"></span>
+        <span>All amounts in <b>SAR</b></span><span class="dot"></span>
+        <span>Cash balance dated 02 Oct (1-day lag)</span>
+      </div>
+    </div>
+    <div class="fresh">
+      <div class="stamp"><span class="live" aria-hidden="true"></span>
+        <span>Live from <code>CEO_Executive_Financial_Dashboard.xlsx</code> · <b>v12</b> · updated 04 Oct 2026 10:20 by Abdullatif Alnaim</span></div>
+      <a class="btn" href="#data-source">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 11V3M4.5 6.5 8 3l3.5 3.5M2.5 11.5v2h11v-2"/></svg>
+        Update workbook</a>
+    </div>
+  </div>
+
+  <nav class="secnav" aria-label="Sections">
+    <a href="#overview" class="on">Overview</a><a href="#risk">Risk indicators</a><a href="#aging">Aging &amp; trend</a><a href="#breakdown">Receivables &amp; payables</a><a href="#loans">Loans &amp; cash</a><a href="#exposures">Top exposures</a><a href="#liquidity">Liquidity &amp; checks</a><a href="#data-source">Data source</a>
+  </nav>
+
+  <!-- ======= KPI row ======= -->
+  <section class="block" id="overview">
+    <div class="kpis">
+      <div class="kpi"><i class="stripe" style="background:var(--ar)"></i>
+        <div class="lbl">Cash &amp; bank</div>
+        <div class="val num"><small>SAR</small>226,509</div>
+        <div class="delta"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 1v8M1.5 4.5 5 1l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="num">+77,048 vs previous day</span></div>
+        <div class="cap">Covers <b>0.03x</b> of 30-day obligations</div>
+      </div>
+      <div class="kpi"><i class="stripe" style="background:var(--ar)"></i>
+        <div class="lbl">Receivables (AR)</div>
+        <div class="val num"><small>SAR</small>11,950,581</div>
+        <div class="cap"><b>11.9%</b> over 90 days · 46 invoices</div>
+        <div class="meter" title="Share over 90 days"><i style="width:11.9%;background:var(--crit)"></i></div>
+      </div>
+      <div class="kpi"><i class="stripe" style="background:var(--ap)"></i>
+        <div class="lbl">Operating payables (AP)</div>
+        <div class="val num"><small>SAR</small>6,126,822</div>
+        <div class="cap"><b>29.2%</b> over 90 days · 108 items</div>
+        <div class="meter" title="Share over 90 days"><i style="width:29.2%;background:var(--crit)"></i></div>
+      </div>
+      <div class="kpi"><i class="stripe" style="background:var(--sal)"></i>
+        <div class="lbl">Bank loans outstanding</div>
+        <div class="val num"><small>SAR</small>6,842,302</div>
+        <div class="cap">Due next 3 months: <b class="num">5,914,353</b></div>
+        <div class="cap">Riyad Bank · 2 facilities · 32 unpaid instalments</div>
+      </div>
+      <div class="kpi"><i class="stripe" style="background:var(--navy-2)"></i>
+        <div class="lbl">Net working capital</div>
+        <div class="val num"><small>SAR</small>6,050,269</div>
+        <div class="cap">Cash + AR − AP</div>
+        <div class="cap">After loans: <b class="num" style="color:var(--crit-text)">(792,033)</b></div>
+      </div>
+      <div class="kpi"><i class="stripe" style="background:var(--crit)"></i>
+        <div class="lbl">Facility utilisation</div>
+        <div class="val num">97.8%</div>
+        <div class="cap">of SAR <b class="num">6,789,000</b> facility limits</div>
+        <div class="meter"><i style="width:97.8%;background:var(--crit)"></i></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Risk indicators + attention ======= -->
+  <section class="block grid2" id="risk">
+    <div class="card">
+      <div class="chead"><h4>Key risk indicators</h4><span class="meta">Thresholds editable in Dash Calc</span></div>
+      <div class="cbody tscroll">
+        <table class="tbl num">
+          <thead><tr><th>Indicator</th><th class="r">Actual</th><th class="r">Green limit</th><th class="r">Amber limit</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>AR over 90 days %</td><td class="r">11.9%</td><td class="r limit">≤ 10.0%</td><td class="r limit">≤ 20.0%</td><td><span class="chip warn">◐ Watch</span></td></tr>
+            <tr><td>AP over 90 days %</td><td class="r">29.2%</td><td class="r limit">≤ 10.0%</td><td class="r limit">≤ 20.0%</td><td><span class="chip crit">● Action</span></td></tr>
+            <tr><td>Cash ÷ 30-day obligations</td><td class="r">0.03x</td><td class="r limit">≥ 1.00x</td><td class="r limit">≥ 0.50x</td><td><span class="chip crit">● Action</span></td></tr>
+            <tr><td>Facility utilisation %</td><td class="r">97.8%</td><td class="r limit">≤ 80.0%</td><td class="r limit">≤ 95.0%</td><td><span class="chip crit">● Action</span></td></tr>
+            <tr><td>Weighted avg AR age (days)</td><td class="r">44</td><td class="r limit">≤ 60</td><td class="r limit">≤ 90</td><td><span class="chip good">✓ On track</span></td></tr>
+            <tr><td>Top 5 debtors share of AR</td><td class="r">58.1%</td><td class="r limit">≤ 50.0%</td><td class="r limit">≤ 70.0%</td><td><span class="chip warn">◐ Watch</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chead"><h4>Needs attention</h4><span class="meta">Derived from indicators marked Action</span></div>
+      <div class="cbody">
+        <ul class="attn">
+          <li><i></i><div><b>Cash covers 3% of 30-day obligations</b><span>Cash <span class="num">226,509</span> against <span class="num">2,441,399</span> of loan instalments due in October plus open operating payables.</span></div></li>
+          <li><i></i><div><b>Facilities 97.8% utilised</b><span>Salaries facility at 99.9% of its <span class="num">4,789,000</span> limit; headroom of <span class="num">4,000</span>.</span></div></li>
+          <li><i></i><div><b>1.79M of payables older than 90 days</b><span>Suppliers <span class="num">1,267,087</span> · Employees <span class="num">457,776</span> · Government <span class="num">62,500</span>.</span></div></li>
+          <li class="w"><i></i><div><b>Loan reconciliation difference 62,213</b><span>AP bank-loan line exceeds the Loan Schedule remaining balance by one L534 instalment now marked Paid.</span></div></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Charts row 1 ======= -->
+  <section class="block" id="aging">
+    <div class="charts3">
+      <div class="card">
+        <div class="chead"><h4>Receivables vs payables – aging profile</h4></div>
+        <div class="legend"><span><i style="background:var(--ar)"></i>AR</span><span><i style="background:var(--ap)"></i>Operating AP</span></div>
+        <div class="cbody"><svg class="chart" id="c-aging" viewBox="0 0 440 240" role="img" aria-label="Grouped columns of receivables and operating payables by aging bucket"></svg></div>
+      </div>
+      <div class="card">
+        <div class="chead"><h4>Open AR vs AP by invoice month</h4><span class="meta">Last 12 months</span></div>
+        <div class="legend"><span><i class="line" style="background:var(--ar)"></i>AR (open)</span><span><i class="line" style="background:var(--ap)"></i>Operating AP (open)</span></div>
+        <div class="cbody"><svg class="chart" id="c-trend" viewBox="0 0 440 240" role="img" aria-label="Line chart of open receivables and payables by invoice month"></svg></div>
+      </div>
+      <div class="card">
+        <div class="chead"><h4>Bank loan repayment runway</h4><span class="meta">Next 12 months</span></div>
+        <div class="legend"><span><i style="background:var(--sal)"></i>Salaries facility</span><span><i style="background:var(--sup)"></i>Supplier loans</span><span><i class="line" style="background:var(--muted)"></i>Remaining after payment</span></div>
+        <div class="cbody"><svg class="chart" id="c-runway" viewBox="0 0 440 240" role="img" aria-label="Stacked columns of loan instalments due per month with remaining balance line"></svg></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Charts row 2 ======= -->
+  <section class="block" id="breakdown">
+    <div class="charts3">
+      <div class="card">
+        <div class="chead"><h4>Receivables by department</h4><span class="meta">SAR · red segment = over 90 days</span></div>
+        <div class="cbody" id="h-dept"></div>
+      </div>
+      <div class="card">
+        <div class="chead"><h4>Payables by obligation type</h4><span class="meta">SAR · red segment = over 90 days</span></div>
+        <div class="cbody" id="h-oblig"></div>
+      </div>
+      <div class="card">
+        <div class="chead"><h4>AR aging by department</h4><span class="meta">Share of each department's balance</span></div>
+        <div class="legend" id="lg-heat"></div>
+        <div class="cbody"><svg class="chart" id="c-heat" viewBox="0 0 440 210" role="img" aria-label="Heatmap of receivables by department and aging bucket"></svg></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Loans & cash ======= -->
+  <section class="block" id="loans">
+    <div class="charts3">
+      <div class="card">
+        <div class="chead"><h4>Bank facilities – utilisation</h4><span class="meta">Riyad Bank · Tawarruq</span></div>
+        <div class="cbody fac num">
+          <div class="row"><span class="n">Salaries facility</span><span class="pct">99.9%</span><span class="l">OS principal 4,785,000 of 4,789,000 limit · 3 instalments unpaid, last due 27 Dec 2026</span><div class="meter"><i style="width:99.9%;background:var(--sal)"></i></div></div>
+          <div class="row"><span class="n">Supplier loans</span><span class="pct">92.6%</span><span class="l">OS principal 1,852,074 of 2,000,000 limit · 6 loans, 29 instalments unpaid, last due 27 Jun 2027</span><div class="meter"><i style="width:92.6%;background:var(--sup)"></i></div></div>
+          <div class="row" style="border-top:1px solid var(--line);padding-top:10px"><span class="n">Total</span><span class="pct">97.8%</span><span class="l">6,637,074 of 6,789,000 · headroom <b>151,926</b> · overdue instalments 0</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="chead"><h4>Loans by instalment status</h4><span class="meta">84 instalments · 11 loans</span></div>
+        <div class="cbody tscroll">
+          <table class="tbl num">
+            <thead><tr><th>Loan</th><th class="r">Principal</th><th class="r">Paid</th><th class="r">Balance</th><th class="r">Last due</th></tr></thead>
+            <tbody>
+              <tr><td class="nw">SAL · Salaries facility</td><td class="r">15,920,910</td><td class="r">11,486,491</td><td class="r">4,921,450</td><td class="r mono">Dec-26</td></tr>
+              <tr><td class="nw">L660 · Loan 660,000 (Zakat)</td><td class="r">660,000</td><td class="r">0</td><td class="r">693,498</td><td class="r mono">Jun-27</td></tr>
+              <tr><td class="nw">L520 · Loan 520,000 (Zakat)</td><td class="r">520,000</td><td class="r">121,299</td><td class="r">424,545</td><td class="r mono">Apr-27</td></tr>
+              <tr><td class="nw">L510 · Loan 510,000 (Zakat)</td><td class="r">510,000</td><td class="r">178,476</td><td class="r">356,952</td><td class="r mono">Mar-27</td></tr>
+              <tr><td class="nw">L383 · Loan 382,500 (Zakat)</td><td class="r">382,500</td><td class="r">222,725</td><td class="r">178,180</td><td class="r mono">Jan-27</td></tr>
+              <tr><td class="nw">L1230 · Loan 1,230,000</td><td class="r">1,230,000</td><td class="r">1,146,014</td><td class="r">143,252</td><td class="r mono">Oct-26</td></tr>
+              <tr><td class="nw">L534 · Loan 533,660 (Zakat)</td><td class="r">533,660</td><td class="r">435,493</td><td class="r">124,426</td><td class="r mono">Dec-26</td></tr>
+              <tr><td class="limit nw">4 loans fully repaid</td><td class="r limit">682,079</td><td class="r limit">705,918</td><td class="r limit">0</td><td class="r mono limit">—</td></tr>
+            </tbody>
+            <tfoot><tr><td>Total</td><td class="r">20,439,150</td><td class="r">14,296,415</td><td class="r">6,842,302</td><td class="r"></td></tr></tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="chead"><h4>Cash by bank account</h4><span class="meta">Balance date 02 Oct 2026</span></div>
+        <div class="cbody num">
+          <div class="cashbar" aria-hidden="true"><i style="width:96.4%"></i><i style="width:3.3%"></i><i style="width:.3%"></i></div>
+          <div class="cashlist">
+            <div class="row"><span class="b">Riyad Bank Main <span class="c">SAR</span></span><span class="a">218,307.16</span><span class="p" style="grid-column:2">96.4%</span></div>
+            <div class="row"><span class="b">Gulf International Bank <span class="c">SAR</span></span><span class="a">7,472.78</span><span class="p" style="grid-column:2">3.3%</span></div>
+            <div class="row"><span class="b">Riyad Bank Main <span class="c">EUR 92.35 @ 4.2500</span></span><span class="a">392.49</span><span class="p" style="grid-column:2">0.2%</span></div>
+            <div class="row"><span class="b">Riyad Bank Sub <span class="c">SAR</span></span><span class="a">185.23</span><span class="p" style="grid-column:2">0.1%</span></div>
+            <div class="row"><span class="b">Emirates NBD <span class="c">SAR</span></span><span class="a">100.00</span><span class="p" style="grid-column:2">0.0%</span></div>
+            <div class="row"><span class="b">Arab National Bank <span class="c">SAR</span></span><span class="a">51.76</span><span class="p" style="grid-column:2">0.0%</span></div>
+            <div class="row" style="border-top:1px solid var(--rule)"><span class="b" style="font-weight:600">Total cash &amp; bank</span><span class="a">226,509.42</span><span class="p" style="grid-column:2">previous day 149,461.72</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Top exposures ======= -->
+  <section class="block grid2 even" id="exposures">
+    <div class="card">
+      <div class="chead"><h4>Top 5 debtors</h4><span class="meta">58.1% of total AR</span></div>
+      <div class="cbody tscroll">
+        <table class="tbl num">
+          <thead><tr><th class="idx">#</th><th>Client</th><th class="r">Amount due</th><th class="r">&gt; 90 days</th><th class="r">Oldest</th></tr></thead>
+          <tbody>
+            <tr><td class="idx">1</td><td>Third payment Historical Palaces – 8 Palaces</td><td class="r">1,998,976</td><td class="r">–</td><td class="r">17 d</td></tr>
+            <tr><td class="idx">2</td><td>Pre-Qualification Studies Project – 5 Palaces</td><td class="r">1,991,926</td><td class="r">–</td><td class="r">31 d</td></tr>
+            <tr><td class="idx">3</td><td>Sixth payment Heritage Assets (21 Sites) – Phase III</td><td class="r">999,580</td><td class="r">–</td><td class="r">17 d</td></tr>
+            <tr><td class="idx">4</td><td>Fifth payment Heritage Assets (21 Sites) – Phase III</td><td class="r">999,580</td><td class="r">–</td><td class="r">17 d</td></tr>
+            <tr><td class="idx">5</td><td>Phase Two – 06: Technical Guidelines</td><td class="r">955,219</td><td class="r">–</td><td class="r">18 d</td></tr>
+          </tbody>
+          <tfoot><tr><td></td><td>Top 5 share of total AR</td><td class="r">6,945,281</td><td class="r" colspan="2">58.1%</td></tr></tfoot>
+        </table>
+        <p class="note" style="margin:12px 0 0">All five are Heritage project invoices issued in September. The data log notes these are payment descriptions rather than client names, so this is effectively one client at 65% of receivables.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chead"><h4>Top 5 creditors</h4><span class="meta">Excluding bank loans · 46.1% of operating AP</span></div>
+      <div class="cbody tscroll">
+        <table class="tbl num">
+          <thead><tr><th class="idx">#</th><th>Creditor</th><th class="r">Amount due</th><th class="r">&gt; 90 days</th><th class="r">Oldest</th></tr></thead>
+          <tbody>
+            <tr><td class="idx">1</td><td>September Payroll</td><td class="r">1,028,403</td><td class="r">–</td><td class="r">3 d</td></tr>
+            <tr><td class="idx">2</td><td>Abnia Consulting Engineers Co</td><td class="r">623,558</td><td class="r hot">48,500</td><td class="r">93 d</td></tr>
+            <tr><td class="idx">3</td><td>Zakat, Tax and Customs Authority</td><td class="r">415,380</td><td class="r hot">62,500</td><td class="r">95 d</td></tr>
+            <tr><td class="idx">4</td><td>Carlton Almaibed</td><td class="r">385,540</td><td class="r hot">260,892</td><td class="r hot">342 d</td></tr>
+            <tr><td class="idx">5</td><td>Bupa Arabia Co.</td><td class="r">371,472</td><td class="r">–</td><td class="r">64 d</td></tr>
+          </tbody>
+          <tfoot><tr><td></td><td>Top 5 share of operating AP</td><td class="r">2,824,353</td><td class="r" colspan="2">46.1%</td></tr></tfoot>
+        </table>
+        <p class="note" style="margin:12px 0 0">Carlton Almaibed is also a client (Carlton Al Moaibed Hotel, AR 135,000). A netting agreement would clear 135,000 without cash.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Liquidity + integrity ======= -->
+  <section class="block grid2" id="liquidity">
+    <div class="card">
+      <div class="chead"><h4>Liquidity outlook – next 3 months</h4><span class="meta">Assumes all AR collected and all open AP settled</span></div>
+      <div class="cbody tscroll">
+        <table class="tbl num liq">
+          <thead><tr><th>SAR</th><th class="r">Oct 2026</th><th class="r">Nov 2026</th><th class="r">Dec 2026</th><th class="r">3 months</th></tr></thead>
+          <tbody>
+            <tr><td>Bank loan instalments due (unpaid)</td><td class="r">2,441,399</td><td class="r">303,955</td><td class="r">3,168,999</td><td class="r">5,914,353</td></tr>
+            <tr><td>Operating payables already due</td><td class="r">6,126,822</td><td class="r">–</td><td class="r">–</td><td class="r">6,126,822</td></tr>
+            <tr><td><b>Total obligations</b></td><td class="r"><b>8,568,221</b></td><td class="r"><b>303,955</b></td><td class="r"><b>3,168,999</b></td><td class="r"><b>12,041,174</b></td></tr>
+            <tr><td>Open receivables (all aging)</td><td class="r" colspan="3"></td><td class="r">11,950,581</td></tr>
+            <tr><td>Cash &amp; bank</td><td class="r" colspan="3"></td><td class="r">226,509</td></tr>
+          </tbody>
+          <tfoot><tr><td>Surplus / (gap) if all AR is collected</td><td class="r" colspan="3">Coverage (AR + cash) ÷ obligations <b>1.01x</b></td><td class="r gap">135,917</td></tr></tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="chead"><h4>Data integrity checks</h4><span class="meta">Reconciliations from the workbook</span></div>
+      <div class="cbody">
+        <ul class="checks">
+          <li><span>AR: department table = total receivables</span><span class="chip pass">PASS</span></li>
+          <li><span>AP: obligation-type table = total payables</span><span class="chip pass">PASS</span></li>
+          <li><span>AP: every account mapped to a group</span><span class="chip pass">PASS</span></li>
+          <li><span>AP loan line = Loan Schedule remaining</span><span class="chip review">REVIEW · Diff 62,213</span></li>
+          <li><span>Every client listed in Debtors sheet</span><span class="chip pass">PASS</span></li>
+          <li><span>Cash balance date within 1 day of report date</span><span class="chip pass">PASS</span></li>
+          <li><span>Every creditor listed in Creditors sheet</span><span class="chip pass">PASS</span></li>
+          <li><span>Loan maturities = remaining instalments</span><span class="chip pass">PASS</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= Data source panel ======= -->
+  <section class="block" id="data-source">
+    <div class="bhead"><h3>Data source</h3><span class="meta">The one file this page reads. Replace it and the dashboard updates on the next load.</span></div>
+    <div class="ds">
+      <div class="card">
+        <div class="chead"><h4>Current workbook</h4><span class="meta">Library: Dashboard Data</span></div>
+        <div class="cbody" style="display:flex;flex-direction:column;gap:12px">
+          <div class="filecard">
+            <div class="xl">XLSX</div>
+            <div><div class="fn">CEO_Executive_Financial_Dashboard.xlsx</div><div class="fm">120 KB · modified 04 Oct 2026 10:20 by Abdullatif Alnaim · report date inside file: 03 Oct 2026</div></div>
+            <span class="ver">v12</span>
+          </div>
+          <div class="drop" id="drop" tabindex="0" role="button" aria-label="Upload a new version of the workbook">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V5m-5 5 5-5 5 5M4 17v3h16v-3"/></svg>
+            <div><b>Drop the updated workbook here</b> or <a href="#data-source">browse</a></div>
+            <small>Accepts .xlsx · the file is saved as a new version of the same document, keeping history</small>
+            <input id="file" type="file" accept=".xlsx" hidden>
+          </div>
+          <div>
+            <div class="eyebrow" style="font:500 11px/1 var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-2);margin-bottom:8px">Sheet contract · 5 of 5 sheets found</div>
+            <div class="sheets">
+              <div><span class="ok"><svg viewBox="0 0 10 10"><path d="M2 5.2 4.2 7.3 8 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></span><div>CEO Dashboard v2<small>KPIs, KRIs, top 5</small></div></div>
+              <div><span class="ok"><svg viewBox="0 0 10 10"><path d="M2 5.2 4.2 7.3 8 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></span><div>AR Data<small>46 rows · 7 columns</small></div></div>
+              <div><span class="ok"><svg viewBox="0 0 10 10"><path d="M2 5.2 4.2 7.3 8 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></span><div>AP Data<small>109 rows · 8 columns</small></div></div>
+              <div><span class="ok"><svg viewBox="0 0 10 10"><path d="M2 5.2 4.2 7.3 8 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></span><div>Loan Schedule<small>84 rows · 14 columns</small></div></div>
+              <div><span class="ok"><svg viewBox="0 0 10 10"><path d="M2 5.2 4.2 7.3 8 3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></span><div>Cash Position<small>6 accounts</small></div></div>
+            </div>
+          </div>
+          <ul class="hist">
+            <li><code>v12</code><span>Uploaded by Abdullatif Alnaim · L534 instalment 7 marked paid</span><span class="when">04 Oct 10:20</span></li>
+            <li><code>v11</code><span>Uploaded by Abdullatif Alnaim · September AR/AP lists pasted</span><span class="when">03 Oct 16:41</span></li>
+            <li><code>v10</code><span>Uploaded by Abdullatif Alnaim · cash balances 01 Oct</span><span class="when">01 Oct 09:12</span></li>
+          </ul>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="card">
+          <div class="chead"><h4>Who can update</h4><span class="meta">SharePoint group: Dashboard Data Editors</span></div>
+          <div class="cbody perm">
+            <div class="who"><span class="av">AA</span><div><b>Abdullatif Alnaim</b><span>Owner · can upload and manage permissions</span></div><span class="role">Full control</span></div>
+            <div class="who"><span class="av" style="background:var(--rule);color:var(--ink-2)">+</span><div><b>Add a delegate</b><span>Grant Contribute on the library; no code change needed</span></div><span class="role">Contribute</span></div>
+            <div class="who"><span class="av" style="background:var(--ink-2)">All</span><div><b>Everyone else on the Finance site</b><span>Sees this page and the data; cannot change the file</span></div><span class="role">Read</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="chead"><h4>How an update flows</h4></div>
+          <div class="cbody">
+            <ol class="steps">
+              <li><div><b>Save or drop the workbook</b> into the Dashboard Data library (here, or from Excel's Save As to SharePoint). Versioning keeps every prior copy.</div></li>
+              <li><div><b>The page reads the file directly</b> through Microsoft Graph on every load: the five sheets above, cached values, no formulas re-run.</div></li>
+              <li><div><b>Everyone sees the new figures</b> on their next visit. The stamp at the top shows the version, time and uploader so a stale file is obvious.</div></li>
+            </ol>
+            <p class="note" style="margin-top:12px">The page keys off sheet names and header labels, never cell addresses. If a sheet or column is renamed, the panel above shows which one is missing instead of showing wrong numbers.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>Source: CEO_Executive_Financial_Dashboard.xlsx · sheets CEO Dashboard v2, Dash Calc, AR Data, AP Data, Loan Schedule, Cash Position</span>
+    <span>Design review mockup · figures as at 03 October 2026</span>
+  </footer>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+(function(){
+  const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const fmtM = n => n>=1e6 ? (n/1e6).toFixed(n>=1e7?0:1).replace(/\.0$/,'')+'M' : n>=1e3 ? Math.round(n/1e3)+'K' : String(Math.round(n));
+  const NS='http://www.w3.org/2000/svg';
+  const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
+  const tip=document.getElementById('tip');
+  function showTip(evt,html){tip.innerHTML=html;tip.style.opacity=1;moveTip(evt);}
+  function moveTip(evt){const w=tip.offsetWidth,h=tip.offsetHeight;let x=evt.clientX+14,y=evt.clientY+14;if(x+w>innerWidth-8)x=evt.clientX-w-14;if(y+h>innerHeight-8)y=evt.clientY-h-14;tip.style.left=x+'px';tip.style.top=y+'px';}
+  function hideTip(){tip.style.opacity=0;}
+  function bind(node,html){node.addEventListener('mouseenter',e=>showTip(e,html));node.addEventListener('mousemove',moveTip);node.addEventListener('mouseleave',hideTip);}
+  function niceMax(v){const p=Math.pow(10,Math.floor(Math.log10(v)));const m=v/p;const n= m<=1?1: m<=2?2: m<=2.5?2.5: m<=5?5:10;return n*p;}
+  function yAxis(svg,x0,y0,y1,max,steps){for(let i=0;i<=steps;i++){const v=max*i/steps,y=y1-(y1-y0)*i/steps;el('line',{x1:x0,x2:svg.viewBox.baseVal.width-8,y1:y,y2:y,class:i===0?'base':'grid'},svg);const t=el('text',{x:x0-6,y:y+4,'text-anchor':'end'},svg);t.textContent=fmtM(v);}}
+
+  /* ---- Data (cached values from the workbook, position as at 03 Oct 2026) ---- */
+  const buckets=['0-30','31-60','61-90','91-120','120+'];
+  const AR=[7783662.42,2670729.33,68875,339250,1088064.60];
+  const AP=[2238170.99,1481491.55,619795.72,252076.23,1535287.26];
+  const months=['Nov-25','Dec-25','Jan-26','Feb-26','Mar-26','Apr-26','May-26','Jun-26','Jul-26','Aug-26','Sep-26','Oct-26'];
+  const tAR=[74750,74750,74750,74750,419750,37375,37375,339250,68875,678802.84,9775588.91,0];
+  const tAP=[5881.56,1789.86,602519.55,110960.61,253721.65,1981.68,28654.88,188572.23,663215.72,1236260.55,2166287.59,337198.40];
+  const rMonths=['Oct-26','Nov-26','Dec-26','Jan-27','Feb-27','Mar-27','Apr-27','May-27','Jun-27','Jul-27','Aug-27','Sep-27'];
+  const rSal=[2056406,0,2865043.88,0,0,0,0,0,0,0,0,0];
+  const rSup=[384993.25,303954.71,303954.67,241741.50,197196.54,197196.54,137704.52,77055.30,77055.33,0,0,0];
+  const rRem=[4400902.99,4096948.28,927949.73,686208.23,489011.69,291815.15,154110.63,77055.33,0,0,0,0];
+  const dept=[['Heritage',7764771.24,0,7],['PMD',1663503.34,0,10],['Supervision',1649537.27,780439.60,23],['Design',527769.50,301875,5],['Design Riyad',345000,345000,1]];
+  const oblig=[['Suppliers & Services',3173870.03,1267087.37,60],['Employees',1921325.88,457776.12,40],['Government',1031625.84,62500,8]];
+  const heat={rows:['Heritage','PMD','Supervision','Design','Design Riyad'],cols:['0-30','31-60','61-90','91-120','120+'],
+    vals:[[5772844.75,1991926.49,0,0,0],[1118720,513283.34,31500,0,0],[794347.67,37375,37375,37375,743064.60],[97750,128144.50,0,301875,0],[0,0,0,0,345000]]};
+
+  /* ---- Grouped columns: aging ---- */
+  (function(){
+    const svg=document.getElementById('c-aging'),W=440,H=240,L=46,R=8,T=18,B=34;
+    const max=niceMax(Math.max(...AR,...AP));yAxis(svg,L,T,H-B,max,4);
+    const bw=(W-L-R)/buckets.length, col=Math.min(24,(bw-16)/2), gap=2;
+    const cAR=css('--ar'),cAP=css('--ap');
+    buckets.forEach((b,i)=>{
+      const cx=L+bw*i+bw/2;
+      const hit=el('rect',{x:L+bw*i,y:T,width:bw,height:H-B-T,class:'hit'},svg);
+      [[AR[i],cAR,-col-gap/2],[AP[i],cAP,gap/2]].forEach(([v,c,off])=>{
+        const h=(H-B-T)*v/max;const y=H-B-h;
+        const p=el('path',{d:`M${cx+off} ${H-B} V${y+4} q0 -4 4 -4 h${col-8} q4 0 4 4 V${H-B} Z`,fill:c},svg);
+      });
+      const t=el('text',{x:cx,y:H-B+16,'text-anchor':'middle',class:'cat'},svg);t.textContent=b;
+      const pct=v=>(100*v/(v===AR[i]?11950581.35:6126821.75)).toFixed(1)+'%';
+      bind(hit,`<b>${b} days</b><div class="row"><span><i style="background:${cAR}"></i>AR</span><span>${fmt(AR[i])} · ${pct(AR[i])}</span></div><div class="row"><span><i style="background:${cAP}"></i>Operating AP</span><span>${fmt(AP[i])} · ${pct(AP[i])}</span></div>`);
+    });
+    // direct labels: the two extremes
+    const lab=(v,i,off,anchor)=>{const cx=L+bw*i+bw/2+off;const h=(H-B-T)*v/max;const t=el('text',{x:cx,y:H-B-h-5,'text-anchor':anchor||'middle',class:'val'},svg);t.textContent=fmtM(v);};
+    lab(AR[0],0,-col/2-gap/2);lab(AP[4],4,col/2+gap/2);
+  })();
+
+  /* ---- Line: trend ---- */
+  (function(){
+    const svg=document.getElementById('c-trend'),W=440,H=240,L=46,R=14,T=18,B=34;
+    const max=niceMax(Math.max(...tAR,...tAP));yAxis(svg,L,T,H-B,max,4);
+    const xs=i=>L+(W-L-R)*i/(months.length-1), ys=v=>H-B-(H-B-T)*v/max;
+    const cAR=css('--ar'),cAP=css('--ap'),surf=css('--surface');
+    months.forEach((m,i)=>{if(i%2===0){const t=el('text',{x:xs(i),y:H-B+16,'text-anchor':'middle'},svg);t.textContent=m;}});
+    [[tAR,cAR],[tAP,cAP]].forEach(([s,c])=>{
+      const d=s.map((v,i)=>(i?'L':'M')+xs(i)+' '+ys(v)).join(' ');
+      el('path',{d:d+` L${xs(s.length-1)} ${H-B} L${xs(0)} ${H-B} Z`,fill:c,'fill-opacity':.08},svg);
+      el('path',{d,fill:'none',stroke:c,'stroke-width':2,'stroke-linejoin':'round','stroke-linecap':'round'},svg);
+    });
+    // emphasise the extreme: Sep-26 AR
+    const pk=10;el('circle',{cx:xs(pk),cy:ys(tAR[pk]),r:6,fill:surf},svg);el('circle',{cx:xs(pk),cy:ys(tAR[pk]),r:4,fill:cAR},svg);
+    const t=el('text',{x:xs(pk)-8,y:ys(tAR[pk])+4,'text-anchor':'end',class:'val'},svg);t.textContent='Sep-26 · '+fmtM(tAR[pk]);
+    // crosshair hits
+    const g=el('g',{},svg);const vline=el('line',{x1:0,x2:0,y1:T,y2:H-B,stroke:css('--rule'),'stroke-width':1,opacity:0},svg);
+    months.forEach((m,i)=>{const x0=i?(xs(i-1)+xs(i))/2:L, x1=i<months.length-1?(xs(i)+xs(i+1))/2:W-R;
+      const hit=el('rect',{x:x0,y:T,width:x1-x0,height:H-B-T,fill:'transparent'},g);
+      hit.addEventListener('mouseenter',e=>{vline.setAttribute('x1',xs(i));vline.setAttribute('x2',xs(i));vline.setAttribute('opacity',1);showTip(e,`<b>${m}</b><div class="row"><span><i style="background:${cAR}"></i>AR (open)</span><span>${fmt(tAR[i])}</span></div><div class="row"><span><i style="background:${cAP}"></i>Operating AP (open)</span><span>${fmt(tAP[i])}</span></div><div class="row"><span>Net</span><span>${fmt(tAR[i]-tAP[i])}</span></div>`);});
+      hit.addEventListener('mousemove',moveTip);hit.addEventListener('mouseleave',()=>{vline.setAttribute('opacity',0);hideTip();});});
+  })();
+
+  /* ---- Stacked columns + remaining line: runway ---- */
+  (function(){
+    const svg=document.getElementById('c-runway'),W=440,H=240,L=46,R=10,T=18,B=34;
+    const max=niceMax(Math.max(...rRem,...rSal.map((v,i)=>v+rSup[i])));yAxis(svg,L,T,H-B,max,5);
+    const bw=(W-L-R)/rMonths.length, col=Math.min(24,bw-8);
+    const cS=css('--sal'),cP=css('--sup'),cR=css('--muted'),surf=css('--surface');
+    const ys=v=>H-B-(H-B-T)*v/max;
+    rMonths.forEach((m,i)=>{
+      const x=L+bw*i+(bw-col)/2;
+      const hit=el('rect',{x:L+bw*i,y:T,width:bw,height:H-B-T,class:'hit'},svg);
+      let base=H-B;
+      if(rSup[i]>0){const h=(H-B-T)*rSup[i]/max;const top=rSal[i]>0;el('path',{d:top?`M${x} ${base} V${base-h} H${x+col} V${base} Z`:`M${x} ${base} V${base-h+4} q0 -4 4 -4 h${col-8} q4 0 4 4 V${base} Z`,fill:cP},svg);base-=h+(top?2:0);}
+      if(rSal[i]>0){const h=(H-B-T)*rSal[i]/max-(rSup[i]>0?2:0);el('path',{d:`M${x} ${base} V${base-h+4} q0 -4 4 -4 h${col-8} q4 0 4 4 V${base} Z`,fill:cS},svg);}
+      if(i%2===0){const t=el('text',{x:L+bw*i+bw/2,y:H-B+16,'text-anchor':'middle'},svg);t.textContent=m;}
+      bind(hit,`<b>${m}</b><div class="row"><span><i style="background:${cS}"></i>Salaries facility</span><span>${fmt(rSal[i])}</span></div><div class="row"><span><i style="background:${cP}"></i>Supplier loans</span><span>${fmt(rSup[i])}</span></div><div class="row"><span>Total due</span><span>${fmt(rSal[i]+rSup[i])}</span></div><div class="row"><span>Remaining after</span><span>${fmt(rRem[i])}</span></div>`);
+    });
+    const pts=rRem.map((v,i)=>[L+bw*i+bw/2,ys(v)]);
+    el('path',{d:pts.map((p,i)=>(i?'L':'M')+p[0]+' '+p[1]).join(' '),fill:'none',stroke:cR,'stroke-width':2,'stroke-linejoin':'round'},svg);
+    pts.forEach(p=>{el('circle',{cx:p[0],cy:p[1],r:5,fill:surf},svg);el('circle',{cx:p[0],cy:p[1],r:3,fill:cR},svg);});
+    // label the two large instalment months
+    [0,2].forEach(i=>{const v=rSal[i]+rSup[i];const t=el('text',{x:L+bw*i+bw/2+(i===0?-2:14),y:ys(v)-6,'text-anchor':'middle',class:'val'},svg);t.textContent=fmtM(v);});
+  })();
+
+  /* ---- Horizontal bars with over-90 segment ---- */
+  function hbars(id,rows,color,total){
+    const box=document.getElementById(id);const max=Math.max(...rows.map(r=>r[1]));
+    rows.forEach(([n,v,o,cnt])=>{
+      const row=document.createElement('div');row.className='hbar-row num';
+      const w=100*v/max, wo=100*o/max;
+      row.innerHTML=`<span class="name" title="${n}">${n}</span><div class="track"><i class="main ${o>0?'has':''}" style="width:${(w-wo)}%;background:${color}"></i>${o>0?`<i class="over" style="width:${wo}%"></i>`:''}</div><span class="v">${fmt(v)}<small>${(100*v/total).toFixed(1)}%</small></span>`;
+      bind(row.querySelector('.track'),`<b>${n}</b><div class="row"><span>Amount</span><span>${fmt(v)}</span></div><div class="row"><span>Over 90 days</span><span>${o?fmt(o):'–'}</span></div><div class="row"><span>Items</span><span>${cnt}</span></div>`);
+      box.appendChild(row);
+    });
+  }
+  hbars('h-dept',dept,css('--ar'),11950581.35);
+  hbars('h-oblig',oblig,css('--ap'),6126821.75);
+
+  /* ---- Heatmap: department × bucket (sequential, one hue) ---- */
+  (function(){
+    const svg=document.getElementById('c-heat'),W=440,H=210,L=96,T=22,cw=(W-L-8)/5,ch=(H-T-6)/5;
+    const base=css('--ar');
+    // row-normalised share → one-hue ramp via opacity over the surface
+    heat.rows.forEach((r,ri)=>{
+      const tot=heat.vals[ri].reduce((a,b)=>a+b,0);
+      const t=el('text',{x:L-8,y:T+ch*ri+ch/2+4,'text-anchor':'end',class:'cat'},svg);t.textContent=r;
+      heat.cols.forEach((c,ci)=>{
+        const v=heat.vals[ri][ci],share=tot?v/tot:0;
+        const rect=el('rect',{x:L+cw*ci+1,y:T+ch*ri+1,width:cw-2,height:ch-2,rx:3,fill:base,'fill-opacity':share===0?0.04:0.15+0.85*share},svg);
+        if(share>=0.3){const tx=el('text',{x:L+cw*ci+cw/2,y:T+ch*ri+ch/2+4,'text-anchor':'middle',class:'val'},svg);tx.textContent=Math.round(share*100)+'%';tx.style.fill=share>0.55?'#fff':'';}
+        bind(rect,`<b>${r} · ${c} days</b><div class="row"><span>Amount</span><span>${fmt(v)}</span></div><div class="row"><span>Share of ${r}</span><span>${(share*100).toFixed(1)}%</span></div>`);
+      });
+    });
+    heat.cols.forEach((c,ci)=>{const t=el('text',{x:L+cw*ci+cw/2,y:T-8,'text-anchor':'middle'},svg);t.textContent=c;});
+    document.getElementById('lg-heat').innerHTML=`<span><i style="background:${base};opacity:.2"></i>0%</span><span><i style="background:${base};opacity:.6"></i>50%</span><span><i style="background:${base}"></i>100% of department</span>`;
+  })();
+
+  /* ---- Section nav highlight ---- */
+  const links=[...document.querySelectorAll('.secnav a')];
+  const secs=links.map(a=>document.querySelector(a.getAttribute('href')));
+  const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('on',l.getAttribute('href')==='#'+e.target.id));}});},{rootMargin:'-20% 0px -70% 0px'});
+  secs.forEach(s=>s&&io.observe(s));
+
+  /* ---- Drop zone (mockup behaviour only) ---- */
+  const drop=document.getElementById('drop'),file=document.getElementById('file');
+  ['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('on');}));
+  ['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('on');}));
+  drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)drop.querySelector('b').textContent=`Mockup: "${f.name}" would be saved as v13`;});
+  drop.addEventListener('click',()=>file.click());
+  drop.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();file.click();}});
+  file.addEventListener('change',()=>{if(file.files[0])drop.querySelector('b').textContent=`Mockup: "${file.files[0].name}" would be saved as v13`;});
+})();
+</script>
